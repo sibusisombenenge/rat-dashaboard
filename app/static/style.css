@@ -75,6 +75,24 @@ body.home header .slogan {
     font-weight: 500;
 }
 
+/* Let the network backdrop show through the homepage panels a little */
+body.home section {
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(2px);
+}
+
+body.home .repo-card {
+    background: rgba(255, 255, 255, 0.55);
+}
+
+/* Dashboard: let the backdrop show through the filters / merge / export panels */
+.filters,
+.author-merge,
+.export-section {
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(2px);
+}
+
 .container {
     max-width: 1200px;
     margin: 0 auto;
