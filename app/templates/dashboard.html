@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ repo.name }} - RAT Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <a href="/" class="back-link">← Back to Repositories</a>
+            <h1>{{ repo.name }}</h1>
+            <p class="subtitle">{{ repo.commit_count }} commits | SHA: {{ repo.ref_sha[:12] if repo.ref_sha else 'N/A' }}</p>
+        </header>
+
+        <!-- Filters -->
+        <section class="filters">
+            <h2>Filters</h2>
+            <div class="filter-grid">
+                <div class="form-group">
+                    <label for="filter-type">Object Type</label>
+                    <select id="filter-type">
+                        <option value="">All Types</option>
+                        <option value="repository">Repository</option>
+                        <option value="directory">Directory</option>
+                        <option value="file">File</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="filter-author">Author</label>
+                    <select id="filter-author">
+                        <option value="">All Authors</option>
+                        {% for author in authors %}
+                        <option value="{{ author }}">{{ author }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="filter-path">File/Directory</label>
+                    <select id="filter-path">
+                        <option value="">All</option>
+                        <optgroup label="Directories">
+                            {% for d in directories %}
+                            <option value="{{ d }}">{{ d }}/</option>
+                            {% endfor %}
+                        </optgroup>
+                        <optgroup label="Files">
+                            {% for f in files %}
+                            <option value="{{ f }}">{{ f }}</option>
+                            {% endfor %}
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="filter-time-from">Time From</label>
+                    <input type="datetime-local" id="filter-time-from">
+                </div>
+                <div class="form-group">
+                    <label for="filter-time-to">Time To</label>
+                    <input type="datetime-local" id="filter-time-to">
+                </div>
+                <div class="form-group filter-actions">
+                    <button class="btn btn-primary" onclick="applyFilters()">Apply Filters</button>
+                    <button class="btn btn-secondary" onclick="clearFilters()">Clear</button>
+                </div>
+            </div>
+            
+            <div class="commit-select">
+                <label for="commit-list">Or select specific commits (one SHA per line):</label>
+                <textarea id="commit-list" placeholder="e.g.\n6d9f2443ab071f86e5d9b43025a40929ec41c46c\n..."></textarea>
+            </div>
+        </section>
+
+        <!-- Visualizations -->
+        <section class="visualizations">
+            <h2>Visualizations</h2>
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <h3>Top Objects by Churn</h3>
+                    <canvas id="churn-chart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3>Author Ownership (Repository)</h3>
+                    <canvas id="ownership-chart"></canvas>
+                </div>
+                <div class="chart-card chart-wide">
+                    <h3>Churn Over Time</h3>
+                    <canvas id="timeline-chart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Metrics View Tabs -->
+        <section class="metrics-view">
+            <div class="tab-container">
+                <button class="tab-btn active" data-metric="all">All Metrics</button>
+                <button class="tab-btn" data-metric="repository">Repository</button>
+                <button class="tab-btn" data-metric="directory">Directories</button>
+                <button class="tab-btn" data-metric="file">Files</button>
+                <button class="tab-btn" data-metric="author">Authors</button>
+            </div>
+
+            <div id="metrics-loading" class="loading" style="display:none;">
+                <div class="spinner"></div>
+                <p>Computing metrics...</p>
+            </div>
+
+            <div id="metrics-content">
+                <div class="metrics-summary" id="metrics-summary"></div>
+                <div class="table-meta" id="table-meta"></div>
+                <div class="table-container">
+                    <table id="metrics-table">
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Path</th>
+                                <th>Author</th>
+                                <th>Added</th>
+                                <th>Removed</th>
+                                <th>Growth</th>
+                                <th>Churn</th>
+                                <th>Mods</th>
+                                <th>Mod Freq</th>
+                                <th>Churn Rate</th>
+                                <th>Ownership</th>
+                            </tr>
+                        </thead>
+                        <tbody id="metrics-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Author Merging -->
+        <section class="author-merge">
+            <h2>Author Merging</h2>
+            <p class="hint">Merge duplicate author identities. Source author's metrics will be attributed to the target author.</p>
+            
+            <form id="merge-form" class="merge-form">
+                <div class="merge-grid">
+                    <div class="form-group">
+                        <label>Source Author</label>
+                        <select id="merge-source" required>
+                            <option value="">Select source...</option>
+                            {% for author in authors %}
+                            <option value="{{ author }}">{{ author }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="merge-arrow">→</div>
+                    <div class="form-group">
+                        <label>Target Author</label>
+                        <select id="merge-target" required>
+                            <option value="">Select target...</option>
+                            {% for author in authors %}
+                            <option value="{{ author }}">{{ author }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group merge-action">
+                        <button type="submit" class="btn btn-primary">Merge</button>
+                    </div>
+                </div>
+            </form>
+
+            {% if merges %}
+            <div class="merge-list">
+                <h3>Active Merges</h3>
+                <ul>
+                    {% for m in merges %}
+                    <li>{{ m.source_name }} &lt;{{ m.source_email }}&gt; → {{ m.target_name }} &lt;{{ m.target_email }}&gt;</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </section>
+
+        <!-- Export -->
+        <section class="export-section">
+            <h2>Export</h2>
+            <a href="/api/repos/{{ repo.name }}/metrics/csv" class="btn btn-secondary" download>Download CSV</a>
+        </section>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+        const REPO_NAME = "{{ repo.name }}";
+    </script>
+    <script src="/static/dashboard.js"></script>
+</body>
+</html>

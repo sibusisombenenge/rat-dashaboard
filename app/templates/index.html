@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAT - Repo Analysis Tool</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="homepage">
+    <div class="container">
+        <header>
+            <h1>🐀 RAT - Repo Analysis Tool</h1>
+            <p class="subtitle">Git Repository Metrics Dashboard</p>
+        </header>
+
+        <section class="add-repo">
+            <h2>Add Repository</h2>
+            <div class="tab-container">
+                <button class="tab-btn active" data-tab="upload">Upload ZIP</button>
+                <button class="tab-btn" data-tab="clone">Clone URL</button>
+            </div>
+            
+            <div id="upload-tab" class="tab-content active">
+                <form id="upload-form" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="repo-name-upload">Repository Name</label>
+                        <input type="text" id="repo-name-upload" name="repo_name" required placeholder="e.g., my-project">
+                    </div>
+                    <div class="form-group">
+                        <label for="zip-file">ZIP File (must contain .git directory)</label>
+                        <input type="file" id="zip-file" name="file" accept=".zip" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Upload & Analyze</button>
+                </form>
+            </div>
+            
+            <div id="clone-tab" class="tab-content">
+                <form id="clone-form">
+                    <div class="form-group">
+                        <label for="repo-name-clone">Repository Name</label>
+                        <input type="text" id="repo-name-clone" name="repo_name" required placeholder="e.g., redis">
+                    </div>
+                    <div class="form-group">
+                        <label for="repo-url">Remote URL</label>
+                        <input type="url" id="repo-url" name="url" required placeholder="https://github.com/user/repo.git">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Clone & Analyze</button>
+                </form>
+            </div>
+            
+            <div id="upload-status" class="status-message"></div>
+        </section>
+
+        <section class="repo-list">
+            <h2>Repositories</h2>
+            <div id="repos-container">
+                {% if repos %}
+                <div class="repo-grid">
+                    {% for repo in repos %}
+                    <div class="repo-card">
+                        <h3>{{ repo.name }}</h3>
+                        <p class="repo-meta">
+                            <span>{{ repo.commit_count }} commits</span>
+                            <span>SHA: {{ repo.ref_sha[:8] if repo.ref_sha else 'N/A' }}</span>
+                        </p>
+                        <a href="/repo/{{ repo.name }}" class="btn btn-secondary">View Dashboard</a>
+                        <button class="btn btn-danger btn-sm" onclick="deleteRepo('{{ repo.name }}')">Delete</button>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="empty-state">No repositories added yet. Upload a ZIP or clone a URL to get started.</p>
+                {% endif %}
+            </div>
+        </section>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

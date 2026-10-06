@@ -218,3 +218,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ─── RAT application data (never commit) ────────────────────────────
+# SQLite database holding ingested repo metrics
+rat.db
+*.db
+*.sqlite3
+# Cloned / uploaded repositories (contain nested .git dirs)
+app/repos/
