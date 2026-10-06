@@ -148,16 +148,19 @@ async def store_metrics(repo_id: int, metrics_data: List[Dict]):
     async with aiosqlite.connect(DB_PATH) as db:
         # Clear existing metrics for this repo (needed for recompute after merges)
         await db.execute("DELETE FROM object_metrics WHERE repo_id = ?", (repo_id,))
+        rows = []
         for row in metrics_data:
             ownership = row.get("ownership", "")
             ownership_val = float(ownership) if ownership != "" else 0.0
-            await db.execute(
-                """INSERT OR REPLACE INTO object_metrics 
-                   (repo_id, object_type, object_path, author_key, added, removed, growth, churn, modifications, ownership) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (repo_id, row["object_type"], row["path"], row["author"],
-                 row["added"], row["removed"], row["growth"], row["churn"], row["modifications"], ownership_val)
-            )
+            rows.append((repo_id, row["object_type"], row["path"], row["author"],
+                         row["added"], row["removed"], row["growth"], row["churn"],
+                         row["modifications"], ownership_val))
+        await db.executemany(
+            """INSERT OR REPLACE INTO object_metrics 
+               (repo_id, object_type, object_path, author_key, added, removed, growth, churn, modifications, ownership) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            rows
+        )
         await db.commit()
 
 
@@ -238,21 +241,16 @@ async def _compute_filtered_metrics(db, repo_id, object_type, path, author,
     # Aggregate metrics
     metrics = {}  # (object_type, path, author) -> {added, removed, mods}
     
+    # O(1) author lookup per file-change (avoids an O(files x commits) scan)
+    author_by_hash = {r["hash"]: (r["author_name"], r["author_email"]) for r in filtered_commits}
+    
     for fc in file_changes:
         commit_hash = fc["commit_hash"]
         file_path = fc["file_path"]
         added = fc["added"]
         removed = fc["removed"]
         
-        # Find the author for this commit
-        author_name = None
-        author_email = None
-        for c in filtered_commits:
-            if c["hash"] == commit_hash:
-                author_name = c["author_name"]
-                author_email = c["author_email"]
-                break
-        
+        author_name, author_email = author_by_hash[commit_hash]
         auth_key = f"{author_name} <{author_email}>"
         
         # File metric
